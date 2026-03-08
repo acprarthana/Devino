@@ -1,4 +1,27 @@
 const Project = require("../models/project");
+const { analyzeCode } = require("../src/services/ai.service");
+const AILog = require("../models/AILog");
+
+exports.submitCodeForReview = async (req, res) => {
+  try {
+    const { codeSnippet, stage, projectContext } = req.body; 
+    const projectId = req.params.id;
+    const feedback = await analyzeCode(codeSnippet, stage, projectContext);
+
+    const aiLog = new AILog({
+      projectId, 
+      codeSnippet,
+      feedback, 
+      timestamp: new Date() 
+    });
+    await aiLog.save();
+
+    res.status(200).json({ success: true, feedback });
+  } catch (error) {
+    console.error('Error in code review:', error);
+    res.status(500).json({ success: false, message: 'AI review failed' });
+  }
+};
 exports.createProject = async (req, res) => {
   try {
     const { projectType } = req.body;

@@ -1,7 +1,15 @@
 "use client";
 import { useEffect, useState } from "react";
+import CodeSubmission from './code-submission';
+import AIFeedback from './ai-feedback';
 export default function Dashboard() {
   const [projects, setProjects] = useState([]);
+  const [feedback, setFeedback] = useState(null);
+
+  const handleFeedback = (newFeedback) => {
+    setFeedback(newFeedback);
+  };
+
   useEffect(() => {
     fetch("http://localhost:5000/api/projects")
       .then((res) => res.json())
@@ -42,6 +50,8 @@ export default function Dashboard() {
               }}
             />
           </div>
+          <CodeSubmission projectId={project._id} onFeedback={handleFeedback} />
+          <AIFeedback feedback={feedback} /> 
         </div>
       ))}
     </div>
