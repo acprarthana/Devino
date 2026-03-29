@@ -1,26 +1,5 @@
-// const express = require("express");
-// const mongoose = require("mongoose");
-// const cors = require("cors");
-// require("dotenv").config();
-// const app = express();
-// app.use(
-//   cors({
-//     origin: "http://localhost:3000",
-//   }),
-// );
-// app.use(express.json());
 
-// mongoose
-//   .connect(process.env.MONGODB_URI)
-//   .then(() => console.log("MongoDB Connected"))
-//   .catch((err) => console.log(err));
-// const projectRoutes = require("./routes/project.routes");
-// app.use("/api/projects", projectRoutes);
-// const PORT = process.env.PORT || 5000;
-// app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-
-
-
+const path = require('path');
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
@@ -30,12 +9,16 @@ const rateLimit = require('express-rate-limit');
 const hpp = require('hpp');
 const xssClean = require('xss-clean');
 
-// Import Routes
+
 const authRoutes = require('./routes/authRoutes');
 const projectRoutes = require('./routes/project.routes');
 
-// Initialize Environment Variables
-dotenv.config();
+
+const envFile = path.resolve(__dirname, '.env');
+dotenv.config({ path: envFile });
+console.log('Server cwd:', process.cwd());
+console.log('Loading env from:', envFile);
+console.log('MONGODB_URI exists:', !!process.env.MONGODB_URI);
 
 const app = express();
 
@@ -64,13 +47,17 @@ app.use(limiter);
 // 2. DATABASE CONNECTION
 // This handles both MONGODB_URI and MONGO_URI to prevent connection errors
 const dbURI = process.env.MONGODB_URI || process.env.MONGO_URI;
+if (!dbURI) {
+  console.error(' MongoDB URI missing. Set MONGODB_URI or MONGO_URI in server/.env');
+  process.exit(1);
+}
 
 mongoose
   .connect(dbURI)
   .then(() => console.log("✅ MongoDB Connected successfully"))
   .catch((err) => {
-    console.error("❌ MongoDB connection error:", err);
-    process.exit(1); // Stop the server if DB connection fails
+    console.error(" MongoDB connection error:", err);
+    process.exit(1);
   });
 
 // 3. ROUTE DEFINITIONS
@@ -92,7 +79,18 @@ app.use(errorMiddleware);
 
 // 5. SERVER STARTUP
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`🚀 Server is running on http://localhost:${PORT}`);
+const server = app.listen(PORT, () => {
+  console.log(` Server is running on http://localhost:${PORT}`);
+}).on('error', (err) => {
+  console.error('Server startup error:', err);
+  process.exit(1);
+});
+
+// Handle unhandled promise rejections
+process.on('unhandledRejection', (err, promise) => {
+  console.error('Unhandled Rejection:', err.message);
+  server.close(() => {
+    process.exit(1);
+  });
 });
 
