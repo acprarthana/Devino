@@ -46,9 +46,9 @@
 
 "use client";
 import { useState } from 'react';
-import axios from 'axios';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { login as loginUser } from '../../services/api';
 
 export default function Login() {
     const [formData, setFormData] = useState({ email: '', password: '' });
@@ -57,14 +57,16 @@ export default function Login() {
     const handleSubmit = async (e) => {
         e.preventDefault();
         try {
-            const res = await axios.post('http://localhost:5000/api/auth/login', formData);
-            localStorage.setItem('token', res.data.token);
-            alert("ACCESS GRANTED. WELCOME BACK.");
-            router.push('/');
-            // Small timeout to ensure the token is saved before refresh
-            setTimeout(() => window.location.reload(), 100);
+            const res = await loginUser(formData);
+            if (res.data?.accessToken) {
+                alert('ACCESS GRANTED. WELCOME BACK.');
+                router.push('/');
+                setTimeout(() => window.location.reload(), 100);
+            } else {
+                alert('Login success, but no token returned');
+            }
         } catch (err) {
-            alert(err.response?.data?.message || "LOGIN FAILED. TRY AGAIN.");
+            alert(err.response?.data?.message || 'LOGIN FAILED. TRY AGAIN.');
         }
     };
 

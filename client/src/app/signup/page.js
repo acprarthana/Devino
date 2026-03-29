@@ -38,8 +38,8 @@
 
 "use client";
 import { useState } from 'react';
-import axios from 'axios';
 import Link from 'next/link';
+import { register } from '../../services/api';
 
 export default function Signup() {
     const [formData, setFormData] = useState({ username: '', email: '', password: '' });
@@ -47,10 +47,11 @@ export default function Signup() {
     const handleSubmit = async (e) => {
         e.preventDefault();
         try {
-            await axios.post('http://localhost:5000/api/auth/register', formData);
-            alert("WELCOME TO THE VOID. Registration Successful!");
+            await register(formData);
+            alert('WELCOME TO THE VOID. Registration Successful! Please log in.');
+            window.location.href = '/login';
         } catch (err) {
-            alert(err.response?.data?.message || "ACCESS DENIED");
+            alert(err.response?.data?.message || 'ACCESS DENIED');
         }
     };
 

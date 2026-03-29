@@ -1,25 +1,37 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState } from 'react';
 import CodeSubmission from './code-submission';
 import AIFeedback from './ai-feedback';
+import { listProjects } from '../../services/api';
+
 export default function Dashboard() {
   const [projects, setProjects] = useState([]);
   const [feedback, setFeedback] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   const handleFeedback = (newFeedback) => {
     setFeedback(newFeedback);
   };
 
   useEffect(() => {
-    fetch("http://localhost:5000/api/projects")
-      .then((res) => res.json())
-      .then((data) => setProjects(data))
-      .catch((err) => console.error(err));
+    const fetchProjects = async () => {
+      try {
+        const res = await listProjects();
+        setProjects(res.data.projects || []);
+      } catch (err) {
+        console.error('Failed to load projects', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProjects();
   }, []);
   return (
     <div style={{ padding: "40px" }}>
       <h1>Project Dashboard</h1>
-      {projects.length === 0 && <p>No projects found.</p>}
+      {loading && <p>Loading projects...</p>}
+      {!loading && projects.length === 0 && <p>No projects found.</p>}
       {projects.map((project) => (
         <div
           key={project._id}

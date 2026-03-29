@@ -1,13 +1,24 @@
-const express = require("express");
+const express = require('express');
 const router = express.Router();
-const {submitCodeForReview} = require("../controllers/project.controller");
 const {
   createProject,
-  completeStage,
   getAllProjects,
-} = require("../controllers/project.controller");
-router.post("/:id/review", submitCodeForReview);
-router.post("/", createProject);
-router.post("/:id/complete-stage", completeStage);
-router.get("/", getAllProjects);
+  getProject,
+  getProgress,
+  submitCodeForReview,
+  getStageSubmissions,
+  retryStage,
+} = require('../controllers/project.controller');
+const { authenticate } = require('../middleware/authMiddleware');
+
+router.use(authenticate);
+
+router.post('/', createProject);
+router.get('/', getAllProjects);
+router.get('/:id', getProject);
+router.get('/:id/progress', getProgress);
+router.post('/:id/stages/:stage/submit', submitCodeForReview);
+router.get('/:id/stages/:stage/submissions', getStageSubmissions);
+router.post('/:id/stages/:stage/retry', retryStage);
+
 module.exports = router;

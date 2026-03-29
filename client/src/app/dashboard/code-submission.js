@@ -1,27 +1,28 @@
-import { useState } from 'react'; 
-import axios from 'axios'; 
-export default function CodeSubmission({ projectId, onFeedback }) {
-  const [codeSnippet, setCodeSnippet] = useState(''); 
-  const [stage, setStage] = useState('');
-  const [projectContext, setProjectContext] = useState('');
-  const [loading, setLoading] = useState(false); 
-  const handleSubmit = async (e) => {
-    e.preventDefault(); 
-    setLoading(true); 
-    
-    try {
-      const response = await axios.post(`/api/projects/${projectId}/review`, {
-        codeSnippet,
-        stage, 
-        projectContext 
-      });
+import { useState } from 'react';
+import { submitStageCode } from '../../services/api';
 
-      onFeedback(response.data.feedback); 
+export default function CodeSubmission({ projectId, onFeedback }) {
+  const [codeSnippet, setCodeSnippet] = useState('');
+  const [stage, setStage] = useState('1');
+  const [projectContext, setProjectContext] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
+      const response = await submitStageCode(projectId, stage, {
+        codeSnippet,
+        files: [],
+        context: projectContext ? { notes: projectContext } : {},
+      });
+      onFeedback(response.data.aiResult || response.data.submission || {});
     } catch (error) {
       console.error('Submission failed:', error);
-      alert('Failed to submit code for review'); 
+      alert(error.response?.data?.message || 'Failed to submit code for review');
     } finally {
-      setLoading(false); 
+      setLoading(false);
     }
   };
 
