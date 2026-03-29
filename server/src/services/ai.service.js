@@ -1,22 +1,35 @@
-const { GoogleGenerativeAI } = require('@google/generative-ai'); 
-const axios = require('axios'); 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY); 
+const { GoogleGenerativeAI } = require('@google/generative-ai');
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
-function buildPrompt(codeSnippet, stage, projectContext) {
-  const prompt = `
-    Analyze the following code snippet for a project in stage: ${stage}.
-    Project context: ${projectContext}.
-    Code:
-    ${codeSnippet}
-    
-    Provide feedback in the following JSON structure:
-    {
-      "review": "Overall code review summary",
-      "stageValidation": "Is the stage complete? (yes/no) with reasoning",
-      "errors": ["List of errors with explanations"],
-      "suggestions": ["List of improvement suggestions"]
-    }
-  `;
+function buildPrompt({ codeSnippet, stage, projectContext, requirements = [], expectedOutput = '' }) {
+  const requirementBullet = requirements.map((req, i) => `${i + 1}. ${req}`).join('\n');
+  const prompt = `You are a secure code validation assistant for an educational full-stack project.
+
+Stage: ${stage}
+Project Context: ${JSON.stringify(projectContext)}
+
+Requirements:
+${requirementBullet || '- No special requirements provided -'}
+
+Expected Output:
+${expectedOutput || '- No expected output provided -'}
+
+Code:
+
+${codeSnippet}
+
+Return ONLY valid JSON (no markdown), with this exact shape:
+{
+  "approved": true | false,
+  "score": 0-100,
+  "feedback": "Actionable feedback summary",
+  "errors": [{"rule": "..", "message": ".."}],
+  "warnings": [{"rule": "..", "message": ".."}],
+  "suggestions": [".."],
+  "model": "gemini-1.5-flash",
+  "promptHash": "<sha256>"
+}
+`;
   return prompt;
 }
 
@@ -29,33 +42,78 @@ async function callGemini(prompt) {
     return text;
   } catch (error) {
     console.error('Error calling Gemini API:', error);
-    throw new Error('Failed to get AI response');
+    throw new Error('AI service unavailable');
   }
 }
 
-
-function parseResponse(rawResponse) {
+function safeJSONParse(raw) {
   try {
-    const parsed = JSON.parse(rawResponse);
-    if (!parsed.review || !parsed.stageValidation || !Array.isArray(parsed.errors) || !Array.isArray(parsed.suggestions)) {
-      throw new Error('Invalid response structure');
-    }
-    return parsed;
-  } catch (error) {
-    console.error('Error parsing AI response:', error);
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+function normalizeResult(parsed, raw) {
+  if (!parsed || typeof parsed !== 'object') {
     return {
-      review: 'Unable to parse review',
-      stageValidation: 'Unable to determine',
-      errors: ['Parsing error'],
-      suggestions: ['Check response format']
+      approved: false,
+      score: 0,
+      feedback: 'AI response could not be parsed to JSON. Please retry.',
+      errors: [{ rule: 'parse_error', message: 'Could not parse AI response' }],
+      warnings: [],
+      suggestions: ['Resubmit code or contact support.'],
+      model: 'gemini-1.5-flash',
+      promptHash: null,
+      rawResponse: raw,
+    };
+  }
+
+  const approved = Boolean(parsed.approved);
+  const score = Number(parsed.score || 0);
+
+  return {
+    approved,
+    score: Math.max(0, Math.min(100, isNaN(score) ? 0 : score)),
+    feedback: parsed.feedback || (approved ? 'Looks good.' : 'Not approved yet.'),
+    errors: Array.isArray(parsed.errors) ? parsed.errors : [],
+    warnings: Array.isArray(parsed.warnings) ? parsed.warnings : [],
+    suggestions: Array.isArray(parsed.suggestions) ? parsed.suggestions : [],
+    model: parsed.model || 'gemini-1.5-flash',
+    promptHash: parsed.promptHash || null,
+    rawResponse: parsed,
+  };
+}
+
+function computePromptHash(data) {
+  const crypto = require('crypto');
+  return crypto.createHash('sha256').update(JSON.stringify(data)).digest('hex');
+}
+
+async function analyzeCode(payload) {
+  const prompt = buildPrompt(payload);
+  try {
+    const rawResponse = await callGemini(prompt);
+    const parsed = safeJSONParse(rawResponse);
+
+    const normalized = normalizeResult(parsed, rawResponse);
+    normalized.promptHash = normalized.promptHash || computePromptHash(payload);
+    normalized.rawResponse = normalized.rawResponse || rawResponse;
+    return normalized;
+  } catch (error) {
+    console.error('analyzeCode exception:', error);
+    return {
+      approved: false,
+      score: 0,
+      feedback: 'AI validation failed; retry later.',
+      errors: [{ rule: 'ai_failure', message: error.message }],
+      warnings: [],
+      suggestions: ['Retry code submission.'],
+      model: 'gemini-unavailable',
+      promptHash: computePromptHash(payload),
+      rawResponse: {},
     };
   }
 }
 
-async function analyzeCode(codeSnippet, stage, projectContext) {
-  const prompt = buildPrompt(codeSnippet, stage, projectContext);
-  const rawResponse = await callGemini(prompt);
-  const structuredResponse = parseResponse(rawResponse);
-  return structuredResponse;
-}
 module.exports = { analyzeCode };
