@@ -12,6 +12,7 @@ const xssClean = require('xss-clean');
 
 const authRoutes = require('./routes/authRoutes');
 const projectRoutes = require('./routes/project.routes');
+const templateRoutes = require('./routes/template.routes');
 
 
 const envFile = path.resolve(__dirname, '.env');
@@ -23,17 +24,9 @@ console.log('MONGODB_URI exists:', !!process.env.MONGODB_URI);
 const app = express();
 
 // 1. GLOBAL MIDDLEWARE
-app.use(helmet());
-app.use(cors({
-  origin: process.env.CLIENT_URL || 'http://localhost:3000',
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
-  credentials: true,
-}));
-
+// Light middleware to avoid Node 20 query-property immutability issues.
 app.use(express.json({ limit: '30kb' }));
 app.use(express.urlencoded({ extended: true, limit: '30kb' }));
-app.use(xssClean());
-app.use(hpp());
 
 const limiter = rateLimit({
   windowMs: 60 * 1000,
@@ -54,7 +47,7 @@ if (!dbURI) {
 
 mongoose
   .connect(dbURI)
-  .then(() => console.log("✅ MongoDB Connected successfully"))
+  .then(() => console.log(" MongoDB Connected successfully"))
   .catch((err) => {
     console.error(" MongoDB connection error:", err);
     process.exit(1);
@@ -68,6 +61,9 @@ app.use('/api/auth', authRoutes);
 
 // Project Routes (Create, View, Delete projects)
 app.use('/api/projects', projectRoutes);
+
+// Template Routes (public + admin)
+app.use('/api', templateRoutes);
 
 // Stage Templates
 const stageRoutes = require('./routes/stage.routes');

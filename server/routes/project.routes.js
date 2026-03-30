@@ -21,4 +21,9 @@ router.post('/:id/stages/:stage/submit', submitCodeForReview);
 router.get('/:id/stages/:stage/submissions', getStageSubmissions);
 router.post('/:id/stages/:stage/retry', retryStage);
 
+// Backwards-compatible endpoints (frontend expectations in issue #16, as Stage path singular)
+router.post('/:id/stage/:stage', submitCodeForReview);
+router.get('/:id/stage/:stage/submissions', getStageSubmissions);
+router.post('/:id/stage/:stage/retry', retryStage);
+
 module.exports = router;

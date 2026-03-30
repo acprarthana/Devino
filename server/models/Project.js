@@ -8,7 +8,7 @@ const projectSchema = new mongoose.Schema(
     },
     templateId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Stage",
+      ref: "Template",
       required: true,
     },
     projectType: {

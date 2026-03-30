@@ -1,6 +1,7 @@
 const Project = require('../models/Project');
 const Submission = require('../models/Submission');
 const Stage = require('../models/Stage');
+const Template = require('../models/Template');
 const AILog = require('../models/AILog');
 const { analyzeCode } = require('../src/services/ai.service');
 
@@ -13,19 +14,26 @@ exports.createProject = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'projectType and templateId are required' });
     }
 
-    const stageTemplate = await Stage.findById(templateId);
-    if (!stageTemplate) {
-      return res.status(404).json({ success: false, message: 'Stage template not found' });
+    const template = await Template.findById(templateId);
+    if (!template) {
+      return res.status(404).json({ success: false, message: 'Template not found' });
+    }
+
+    if (template.projectType !== projectType) {
+      return res.status(400).json({ success: false, message: 'projectType mismatch with template' });
+    }
+
+    const stageStatus = [];
+    for (let i = 1; i <= template.stageCount; i += 1) {
+      stageStatus.push({ stageNumber: i, status: i === 1 ? 'unlocked' : 'locked', attempts: 0, updatedAt: new Date() });
     }
 
     const project = new Project({
       userId: req.user._id,
-      projectType,
-      templateId,
+      projectType: template.projectType,
+      templateId: template._id,
       currentStage: 1,
-      stageStatus: [
-        { stageNumber: 1, status: 'unlocked', attempts: 0, updatedAt: new Date() },
-      ],
+      stageStatus,
       completedStages: [],
       progressPercentage: 0,
       version: 1,
